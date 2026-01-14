@@ -2,7 +2,8 @@ import sqlite3
 import os
 import secrets
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'bot.db')
+# Store database in project root (parent of src directory)
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bot.db')
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)

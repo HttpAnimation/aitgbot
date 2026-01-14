@@ -9,7 +9,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import db
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+# Load .env from project root (parent of src directory)
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 app = FastAPI()
 
