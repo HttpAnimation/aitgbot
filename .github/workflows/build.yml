@@ -179,16 +179,40 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate checksums and release info
+        id: release_info
+        run: |
+          BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          BUILD_DATE_SHORT=$(date -u +"%Y-%m-%d")
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+          echo "build_date_short=$BUILD_DATE_SHORT" >> $GITHUB_OUTPUT
+          
+          cd artifacts
+          echo "## SHA256 Checksums" > checksums.txt
+          echo '```' >> checksums.txt
+          sha256sum *.zip *.tar.gz >> checksums.txt
+          echo '```' >> checksums.txt
+          
+          cat checksums.txt
+          
+          {
+            echo 'checksums<<EOF'
+            cat checksums.txt
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
       - name: Create Rolling Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: Latest Build
+          name: Build ${{ steps.release_info.outputs.build_date_short }}
           body: |
             Rolling release - automatically updated on every push to main branch.
             
             **Commit:** ${{ github.sha }}
-            **Built:** ${{ github.event.head_commit.timestamp }}
+            **Built:** ${{ steps.release_info.outputs.build_date }}
+            
+            ${{ steps.release_info.outputs.checksums }}
           files: |
             artifacts/*.zip
             artifacts/*.tar.gz
