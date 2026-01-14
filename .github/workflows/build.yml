@@ -137,8 +137,8 @@ jobs:
         run: |
           mkdir -p release
           cp dist/${{ matrix.executable }} release/
-          if [ -f .env.example ]; then cp .env.example release/; fi
-          if [ -f project.url ]; then cp project.url release/; fi
+          cp .env.example release/
+          cp project.url release/
           ls -la release/
 
       - name: Upload artifact

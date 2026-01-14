@@ -6,6 +6,10 @@ import sys
 import uvicorn
 
 import paths
+import env_check
+
+# Check .env exists before doing anything else
+env_check.ensure_env_exists()
 
 logging.basicConfig(
     level=logging.INFO,
