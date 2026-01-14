@@ -15,7 +15,6 @@ a = Analysis(
         'db',
         'paths',
         'version',
-        'env_check',
         'services',
         'services.base',
         'services.router',

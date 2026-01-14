@@ -5,23 +5,21 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
 
 import db
 import paths
-import env_check
-
-env_check.ensure_env_exists()
-load_dotenv(paths.get_data_path('.env'))
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "change-me-in-production"))
+
+# Get config from database  
+SECRET_KEY = db.get_config('secret_key', 'change-me-in-production')
+WEBUI_PASSWORD = db.get_config('webui_password', 'admin')
+
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 templates = Jinja2Templates(directory=paths.get_resource_path("templates"))
-
-WEBUI_PASSWORD = os.getenv("WEBUI_PASSWORD", "admin")
 
 
 def is_authenticated(request: Request) -> bool:
@@ -93,6 +91,44 @@ async def update_config(
     db.set_config("system_prompt", system_prompt)
     db.set_config("lm_studio_url", lm_studio_url)
     return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@app.get("/settings")
+async def settings(request: Request):
+    if not is_authenticated(request):
+        return RedirectResponse(url="/")
+    
+    config = {
+        'bot_token': db.get_config('bot_token', ''),
+        'webui_password': db.get_config('webui_password', 'admin'),
+        'secret_key': db.get_config('secret_key', 'change-me-in-production'),
+        'access_password': db.get_config('access_password', 'secret')
+    }
+    
+    return templates.TemplateResponse("settings.html", {
+        "request": request, 
+        "config": config
+    })
+
+
+@app.post("/update_app_config")
+async def update_app_config(
+    request: Request,
+    bot_token: str = Form(...),
+    webui_password: str = Form(...),
+    secret_key: str = Form(...),
+    access_password: str = Form(...)
+):
+    if not is_authenticated(request):
+        return RedirectResponse(url="/")
+    
+    # Update configurations in database
+    db.set_config("bot_token", bot_token.strip())
+    db.set_config("webui_password", webui_password)
+    db.set_config("secret_key", secret_key)
+    db.set_config("access_password", access_password)
+    
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
 @app.post("/add_user")

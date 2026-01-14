@@ -5,31 +5,27 @@ import base64
 import io
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart, Command
-from dotenv import load_dotenv
 
 import db
 import paths
-import env_check
 from services import get_router
 from services.base import Message
 
-env_check.ensure_env_exists()
-load_dotenv(paths.get_data_path('.env'))
-
 logger = logging.getLogger(__name__)
 
-TOKEN = os.getenv("BOT_TOKEN", "").strip()
+# Get config from database
+TOKEN = db.get_config('bot_token', '')
 if not TOKEN:
-    raise ValueError("BOT_TOKEN not set")
+    raise ValueError("BOT_TOKEN not configured. Please set it in the web UI at http://localhost:7860")
 
-WEBUI_PASSWORD = os.getenv("WEBUI_PASSWORD", "admin")
+WEBUI_PASSWORD = db.get_config('webui_password', 'admin')
 
 dp = Dispatcher()
 bot = Bot(token=TOKEN)
 
 
 def get_access_password():
-    return db.get_config('access_password') or os.getenv('BOT_ACCESS_PASSWORD', 'secret')
+    return db.get_config('access_password', 'secret')
 
 @dp.message(CommandStart())
 async def command_start_handler(message: types.Message):

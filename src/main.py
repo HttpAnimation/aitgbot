@@ -4,12 +4,42 @@ import multiprocessing
 import os
 import sys
 import uvicorn
+import secrets
+import string
 
 import paths
-import env_check
+import db
 
-# Check .env exists before doing anything else
-env_check.ensure_env_exists()
+def generate_random_password(length=12):
+    """Generate a random password with letters, digits, and some special characters"""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return password
+
+def setup_first_run():
+    """Setup configuration on first run"""
+    webui_password = db.get_config('webui_password', None)
+    
+    if webui_password is None:
+        # First run - generate random password
+        random_password = generate_random_password()
+        db.set_config('webui_password', random_password)
+        
+        print("=" * 60)
+        print("🎉 AITG Bot - First Run Setup Complete!")
+        print("=" * 60)
+        print(f"Web UI Password: {random_password}")
+        print("Web UI URL: http://localhost:7860")
+        print()
+        print("⚠️  IMPORTANT: Save this password! You'll need it to access the web UI.")
+        print("   You can change it later in the App Settings.")
+        print()
+        print("📝 Next Steps:")
+        print("   1. Go to http://localhost:7860")
+        print("   2. Login with the password above")
+        print("   3. Click 'App Settings' to configure your bot token")
+        print("=" * 60)
+        print()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +71,9 @@ if __name__ == "__main__":
         from version import print_version_info
         print_version_info()
         sys.exit(0)
+
+    # Setup first run configuration
+    setup_first_run()
 
     os.chdir(paths.get_base_path())
 
