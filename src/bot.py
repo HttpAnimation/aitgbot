@@ -114,12 +114,19 @@ async def list_models(message: types.Message):
         return
     
     router = get_router()
+    current_provider = db.get_config('ai_provider', 'lm_studio')
+    router.set_current_provider(current_provider)
+    
+    # Configure providers based on saved settings
     lm_studio_url = db.get_config('lm_studio_url', 'http://127.0.0.1:1234/v1')
+    ollama_url = db.get_config('ollama_url', 'http://127.0.0.1:11434')
+    
     router.configure_provider('lm_studio', base_url=lm_studio_url)
+    router.configure_provider('ollama', base_url=ollama_url)
     
     try:
         models_list = await router.list_models()
-        text = f"Available Models ({router.get_current_provider()}):\n"
+        text = f"Available Models ({current_provider.replace('_', ' ').title()}):\n"
         current = db.get_config('model')
         for m in models_list:
             mark = " [CURRENT]" if m.id == current else ""
@@ -189,10 +196,17 @@ async def chat_handler(message: types.Message):
 
     model_name = db.get_config('model', 'local-model')
     system_prompt = db.get_config('system_prompt', 'You are a helpful assistant.')
-    lm_studio_url = db.get_config('lm_studio_url', 'http://127.0.0.1:1234/v1')
-
+    current_provider = db.get_config('ai_provider', 'lm_studio')
+    
     router = get_router()
+    router.set_current_provider(current_provider)
+    
+    # Configure providers based on saved settings
+    lm_studio_url = db.get_config('lm_studio_url', 'http://127.0.0.1:1234/v1')
+    ollama_url = db.get_config('ollama_url', 'http://127.0.0.1:11434')
+    
     router.configure_provider('lm_studio', base_url=lm_studio_url)
+    router.configure_provider('ollama', base_url=ollama_url)
 
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
 

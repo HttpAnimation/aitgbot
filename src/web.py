@@ -8,6 +8,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 import db
 import paths
+from services import get_router
+from services import get_router
 
 logger = logging.getLogger(__name__)
 
@@ -52,44 +54,64 @@ async def dashboard(request: Request):
     if not is_authenticated(request):
         return RedirectResponse(url="/")
 
+    router = get_router()
+    current_provider = db.get_config("ai_provider", "lm_studio")
+    
+    # Configure the router's current provider
+    router.set_current_provider(current_provider)
+    
+    # Configure providers based on saved settings
+    lm_studio_url = db.get_config("lm_studio_url", "http://127.0.0.1:1234/v1")
+    ollama_url = db.get_config("ollama_url", "http://127.0.0.1:11434")
+    
+    router.configure_provider("lm_studio", base_url=lm_studio_url)
+    router.configure_provider("ollama", base_url=ollama_url)
+    
+    # Get models from current provider
+    try:
+        models = await router.list_models(current_provider)
+    except Exception as e:
+        logger.warning(f"Could not fetch models from {current_provider}: {e}")
+        models = []
+    
     users = db.get_users()
-    access_password = db.get_config("access_password") or os.getenv("BOT_ACCESS_PASSWORD", "secret")
+    access_password = db.get_config("access_password", "secret")
     current_model = db.get_config("model", "local-model")
     system_prompt = db.get_config("system_prompt", "You are a helpful assistant.")
-    lm_studio_url = db.get_config("lm_studio_url", "http://localhost:1234/v1")
-
-    models = []
-    try:
-        r = requests.get(f"{lm_studio_url.rstrip('/')}/models", timeout=2)
-        if r.status_code == 200:
-            models = r.json().get("data", [])
-    except Exception as e:
-        logger.warning(f"Could not fetch models: {e}")
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "users": users,
         "models": models,
         "current_model": current_model,
+        "current_provider": current_provider,
         "system_prompt": system_prompt,
         "access_password": access_password,
-        "lm_studio_url": lm_studio_url
+        "lm_studio_url": lm_studio_url,
+        "ollama_url": ollama_url,
+        "providers": router.list_providers()
     })
 
 @app.post("/update_config")
 async def update_config(
     request: Request,
+    ai_provider: str = Form(...),
     access_password: str = Form(...),
     model: str = Form(...),
     system_prompt: str = Form(...),
-    lm_studio_url: str = Form(...)
+    lm_studio_url: str = Form(...),
+    ollama_url: str = Form(...)
 ):
     if not is_authenticated(request):
         return RedirectResponse(url="/")
+    
+    db.set_config("ai_provider", ai_provider)
     db.set_config("access_password", access_password)
     db.set_config("model", model)
     db.set_config("system_prompt", system_prompt)
     db.set_config("lm_studio_url", lm_studio_url)
+    db.set_config("ollama_url", ollama_url)
+    
     return RedirectResponse(url="/dashboard", status_code=303)
 
 
