@@ -3,34 +3,30 @@ import logging
 import os
 import base64
 import io
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart, Command
 from dotenv import load_dotenv
+
 import db
 from services import get_router
 from services.base import Message
 
-# Load .env from project root (parent of src directory)
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+
+logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("BOT_TOKEN", "").strip()
 if not TOKEN:
-    raise ValueError("BOT_TOKEN is not set in .env file")
-
-print(f"Loaded Token: {TOKEN[:5]}...{TOKEN[-5:]} (Check if this matches your BotFather token)")
-
-# Initialize Bot and Dispatcher
-dp = Dispatcher()
-bot = Bot(token=TOKEN)
+    raise ValueError("BOT_TOKEN not set")
 
 WEBUI_PASSWORD = os.getenv("WEBUI_PASSWORD", "admin")
 
+dp = Dispatcher()
+bot = Bot(token=TOKEN)
+
+
 def get_access_password():
-    # Priority: DB -> Env -> Default
-    pwd = db.get_config('access_password')
-    if pwd:
-        return pwd
-    return os.getenv('BOT_ACCESS_PASSWORD', 'secret')
+    return db.get_config('access_password') or os.getenv('BOT_ACCESS_PASSWORD', 'secret')
 
 @dp.message(CommandStart())
 async def command_start_handler(message: types.Message):
@@ -192,63 +188,42 @@ async def chat_handler(message: types.Message):
         await message.answer("You are now an admin.")
         return
 
-    # User is authorized, send to AI provider
     model_name = db.get_config('model', 'local-model')
     system_prompt = db.get_config('system_prompt', 'You are a helpful assistant.')
     lm_studio_url = db.get_config('lm_studio_url', 'http://127.0.0.1:1234/v1')
 
-    # Get the AI router and configure the provider
     router = get_router()
     router.configure_provider('lm_studio', base_url=lm_studio_url)
-    
-    # Notify user that we are thinking (optional, but good UX)
+
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
-    
+
     try:
-        logging.info(f"Sending request via AI router with model {model_name}...")
-        
         messages = [Message(role="system", content=str(system_prompt))]
-        
+
         if message.photo:
-            # Get the largest photo
             photo = message.photo[-1]
-            logging.info(f"Processing image: {photo.file_id}")
-            
-            # Download photo to memory
             file_io = io.BytesIO()
             await bot.download(photo, destination=file_io)
             file_io.seek(0)
-            
-            # Encode to base64
             base64_image = base64.b64encode(file_io.getvalue()).decode('utf-8')
-            
             user_content = [
-                {"type": "text", "text": str(text) if text else "What is in this image?"},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{base64_image}"
-                    }
-                }
+                {"type": "text", "text": text or "What is in this image?"},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
             ]
             messages.append(Message(role="user", content=user_content))
         else:
-            messages.append(Message(role="user", content=str(text)))
+            messages.append(Message(role="user", content=text))
 
         response = await router.chat(messages, model=model_name)
-        logging.info(f"Received response from {response.provider}")
-        
-        if response.text:
-            await message.answer(response.text)
-        else:
-            await message.answer("AI returned an empty response.")
+        await message.answer(response.text or "Empty response from AI.")
     except Exception as e:
-        logging.error(f"AI Provider Error: {e}")
-        await message.answer(f"Error communicating with AI provider. Is it running?\nError: {e}")
+        logger.exception("AI request failed")
+        await message.answer(f"Error: {e}")
 
 async def main():
-    logging.info("Starting bot polling...")
+    logger.info("Starting bot...")
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
