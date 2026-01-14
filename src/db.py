@@ -4,7 +4,9 @@ import secrets
 import json
 from datetime import datetime, timedelta
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bot.db')
+import paths
+
+DB_PATH = paths.get_data_path('bot.db')
 
 
 def get_connection():

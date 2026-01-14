@@ -8,15 +8,16 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
 import db
+import paths
 
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+load_dotenv(paths.get_data_path('.env'))
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "change-me-in-production"))
 
-templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
+templates = Jinja2Templates(directory=paths.get_resource_path("templates"))
 
 WEBUI_PASSWORD = os.getenv("WEBUI_PASSWORD", "admin")
 

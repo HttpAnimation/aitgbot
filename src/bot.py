@@ -8,10 +8,11 @@ from aiogram.filters import CommandStart, Command
 from dotenv import load_dotenv
 
 import db
+import paths
 from services import get_router
 from services.base import Message
 
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+load_dotenv(paths.get_data_path('.env'))
 
 logger = logging.getLogger(__name__)
 
